@@ -44,7 +44,7 @@ static bool verify_model(Solver& s, const std::vector<std::vector<Lit>>& clauses
     return true;
 }
 
-// --- tests ---
+// tests
 
 TEST(empty_solver) {
     Solver s;

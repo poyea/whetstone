@@ -11,16 +11,26 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic -O2)
 endif()
 
+set(SOLVER_SOURCES
+    src/solver.cpp
+    src/propagate.cpp
+    src/analyze.cpp
+    src/vsids.cpp
+    src/clause_db.cpp
+    src/search.cpp
+    src/dimacs.cpp
+)
+
 add_executable(whetstone
     src/main.cpp
-    src/solver.cpp
+    ${SOLVER_SOURCES}
 )
 
 enable_testing()
 
 add_executable(whetstone_tests
     tests/test_solver.cpp
-    src/solver.cpp
+    ${SOLVER_SOURCES}
 )
 
 add_test(NAME solver_tests COMMAND whetstone_tests)
