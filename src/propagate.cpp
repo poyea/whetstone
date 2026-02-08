@@ -27,7 +27,13 @@ CRef Solver::propagate() {
                     break;
                 }
 
-                unchecked_enqueue(implied, ws[j - 1].cref);
+                // Ensure c[0] is the propagated literal
+                CRef cr = ws[j - 1].cref;
+                Clause& c = m_ca[cr];
+                if (c[0] != implied)
+                    std::swap(c[0], c[1]);
+
+                unchecked_enqueue(implied, cr);
                 continue;
             }
 

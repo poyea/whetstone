@@ -31,12 +31,20 @@ bool parse_dimacs(std::istream& in, Solver& solver) {
             return false;
         }
 
+        // Skip lines that don't look like clauses (e.g., % markers)
+        size_t start = line.find_first_not_of(" \t");
+        if (start == std::string::npos)
+            continue;
+        char first = line[start];
+        if (first != '-' && (first < '0' || first > '9'))
+            continue;
+
         std::istringstream iss(line);
         std::vector<Lit> clause;
         int lit;
         while (iss >> lit) {
             if (lit == 0) {
-                if (!solver.add_clause(std::move(clause)))
+                if (!clause.empty() && !solver.add_clause(std::move(clause)))
                     return true;
                 clause.clear();
             } else {
