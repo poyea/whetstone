@@ -84,6 +84,23 @@ class Solver {
     std::vector<Lit> m_minimize_stack;
     std::vector<Lit> m_minimize_toclear;
 
+    std::vector<bool> m_eliminated;
+
+    /// @brief Per-variable witness for model extension after BVE.
+    /// pos_witnesses[i] = other literals in one positive occurrence of v[i].
+    /// During extend_model(), if any witness clause has no true literal, v is set true.
+    struct ElimRecord {
+        Var v;
+        std::vector<std::vector<Lit>> pos_witnesses;
+    };
+    std::vector<ElimRecord> m_elim_stack;
+
+    bool preprocess();
+    bool run_scc();
+    bool run_bve();
+    bool run_probing();
+    void extend_model();
+
     /// @brief Binary min-heap ordered by VSIDS activity scores.
     class VarOrderHeap {
         std::vector<Var> m_heap;

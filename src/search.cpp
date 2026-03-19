@@ -91,6 +91,9 @@ bool Solver::solve() {
     if (!m_ok)
         return false;
 
+    if (!preprocess())
+        return false;
+
     lbool status = lbool::Undef;
 
     while (status == lbool::Undef) {
@@ -103,6 +106,9 @@ bool Solver::solve() {
         }
         m_stats.restarts++;
     }
+
+    if (status == lbool::True)
+        extend_model();
 
     return status == lbool::True;
 }

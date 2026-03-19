@@ -19,6 +19,7 @@ set(SOLVER_SOURCES
     src/clause_db.cpp
     src/search.cpp
     src/dimacs.cpp
+    src/preprocess.cpp
 )
 
 add_executable(whetstone

@@ -6,7 +6,7 @@ Lit Solver::pick_branch_lit() {
     Var next = Var_Undef;
     while (!m_order_heap.empty()) {
         next = m_order_heap.remove_min();
-        if (value(next) == lbool::Undef)
+        if (value(next) == lbool::Undef && !m_eliminated[next])
             break;
         next = Var_Undef;
     }

@@ -75,6 +75,7 @@ Var Solver::new_var() {
     m_seen.push_back(0);
     m_watches.emplace_back();
     m_watches.emplace_back();
+    m_eliminated.push_back(false);
     m_order_heap.insert(v);
     return v;
 }
