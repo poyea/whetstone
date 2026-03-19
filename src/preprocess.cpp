@@ -389,8 +389,20 @@ bool Solver::run_bve() {
             continue;
         }
         if (nn == 0 && np > 0) {
-            // v=true satisfies all pos clauses.
-            m_elim_stack.push_back({v, {}});
+            // Pure positive: store actual pos clause witnesses so extend_model can
+            // set v=true when needed (all other literals in a pos clause are false).
+            std::vector<std::vector<Lit>> pos_witnesses;
+            for (CRef cr : pos_occ[v]) {
+                if (m_ca[cr].deleted())
+                    continue;
+                const Clause& c = m_ca[cr];
+                std::vector<Lit> others;
+                for (uint32_t i = 0; i < c.size(); i++)
+                    if (c[i] != Lit(v, false))
+                        others.push_back(c[i]);
+                pos_witnesses.push_back(std::move(others));
+            }
+            m_elim_stack.push_back({v, std::move(pos_witnesses)});
             m_eliminated[v] = true;
             for (CRef cr : pos_occ[v]) {
                 if (m_ca[cr].deleted())
@@ -501,11 +513,38 @@ bool Solver::run_bve() {
         m_eliminated[v] = true;
         m_elim_stack.push_back({v, std::move(pos_witnesses)});
 
-        // Add resolvents (may trigger BCP; propagate() is called by add_clause for units).
+        // Add resolvents and keep occurrence lists current so later eliminations
+        // in this same pass see all live clauses containing each variable.
         for (const auto& res : resolvents) {
             if (!m_ok)
                 break;
-            add_clause(res);
+
+            // Filter level-0 assignments (units may have been forced by earlier BCP).
+            std::vector<Lit> simplified;
+            bool sat = false;
+            for (Lit l : res) {
+                lbool val = value(l);
+                if (val == lbool::True) { sat = true; break; }
+                if (val == lbool::False) continue;
+                simplified.push_back(l);
+            }
+            if (sat)
+                continue;
+            if (simplified.empty()) { m_ok = false; break; }
+
+            if (simplified.size() == 1) {
+                unchecked_enqueue(simplified[0]);
+                if (propagate() != CRef_Undef) { m_ok = false; break; }
+                continue;
+            }
+
+            CRef new_cr = alloc_clause(simplified, false);
+            m_original.push_back(new_cr);
+            attach_clause(new_cr);
+            for (Lit l : simplified) {
+                if (l.sign()) neg_occ[l.var()].push_back(new_cr);
+                else          pos_occ[l.var()].push_back(new_cr);
+            }
         }
     }
 
