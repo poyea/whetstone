@@ -86,6 +86,10 @@ class Solver {
 
     std::vector<bool> m_eliminated;
 
+    /// @brief SCC model extension: m_scc_subst[v] = canonical literal c such that v+ ≡ c.
+    /// Lit_Undef means v was not substituted by SCC.
+    std::vector<Lit> m_scc_subst;
+
     /// @brief Per-variable witness for model extension after BVE.
     /// pos_witnesses[i] = other literals in one positive occurrence of v[i].
     /// During extend_model(), if any witness clause has no true literal, v is set true.

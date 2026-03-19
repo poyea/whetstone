@@ -15,9 +15,9 @@ bool Solver::preprocess() {
 }
 
 void Solver::extend_model() {
-    // Process elimination records in reverse order: later-eliminated vars first.
-    // For each var v eliminated by BVE: set v=true iff some positive occurrence
-    // clause has all its other literals false (i.e., v is needed to satisfy it).
+    // BVE extension: process elimination records in reverse order.
+    // For each var v: set v=true iff some positive occurrence clause has all
+    // its other literals false (v is the only literal that can satisfy it).
     for (int i = static_cast<int>(m_elim_stack.size()) - 1; i >= 0; i--) {
         const auto& rec = m_elim_stack[i];
         bool need_true = false;
@@ -35,6 +35,18 @@ void Solver::extend_model() {
             }
         }
         m_assigns[rec.v] = need_true ? lbool::True : lbool::False;
+    }
+
+    // SCC extension: set substituted variables from their canonical literal.
+    // canonical is always an SCC root (not itself substituted), so it is
+    // already assigned either by search or by the BVE pass above.
+    for (Var v = 0; v < static_cast<Var>(m_scc_subst.size()); v++) {
+        if (m_scc_subst[v] == Lit_Undef)
+            continue;
+        if (m_assigns[v] != lbool::Undef)
+            continue;
+        lbool canon_val = value(m_scc_subst[v]);
+        m_assigns[v] = (canon_val == lbool::True) ? lbool::True : lbool::False;
     }
 }
 
@@ -227,6 +239,22 @@ bool Solver::run_scc() {
         if (!m_ok)
             break;
         add_clause(lits);
+    }
+
+    // Mark substituted variables as eliminated so CDCL won't branch on them.
+    // Their values are recovered in extend_model() via m_scc_subst.
+    for (Var v = 0; v < m_num_vars; v++) {
+        if (value(v) != lbool::Undef)
+            continue;
+        uint32_t vi_plus = Lit(v, false).index();
+        if (rep[vi_plus] == vi_plus)
+            continue; // v+ is its own canonical; not substituted
+        Lit canon;
+        canon.x = rep[vi_plus];
+        if (canon.var() == v)
+            continue; // would map to ~v — already caught as contradiction above
+        m_scc_subst[v] = canon;
+        m_eliminated[v] = true;
     }
 
     return m_ok;

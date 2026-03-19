@@ -76,6 +76,7 @@ Var Solver::new_var() {
     m_watches.emplace_back();
     m_watches.emplace_back();
     m_eliminated.push_back(false);
+    m_scc_subst.push_back(Lit_Undef);
     m_order_heap.insert(v);
     return v;
 }
