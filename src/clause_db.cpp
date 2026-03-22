@@ -74,14 +74,36 @@ bool Solver::add_clause(std::vector<Lit> lits) {
 // Solver: clause database reduction
 
 void Solver::reduce_db() {
+    // Sort worst-first so the bottom half contains the best deletion candidates.
+    // Primary key: LBD tier (higher tier = worse quality = sort to the front):
+    //   tier 2: LBD >= 4  -- main deletion pool
+    //   tier 1: LBD == 3  -- near-glue, protected below but sorted after tier 2
+    //   tier 0: LBD <= 2  -- glue clauses, always kept
+    // Secondary key: activity ascending (least recently useful first).
     std::sort(m_learnts.begin(), m_learnts.end(),
-              [this](CRef a, CRef b) { return m_ca[a].activity < m_ca[b].activity; });
+              [this](CRef a, CRef b) {
+                  const Clause& ca = m_ca[a];
+                  const Clause& cb = m_ca[b];
+                  auto tier = [](uint32_t lbd) -> uint32_t {
+                      return lbd <= 2 ? 0 : lbd == 3 ? 1 : 2;
+                  };
+                  uint32_t ta = tier(ca.lbd), tb = tier(cb.lbd);
+                  if (ta != tb)
+                      return ta > tb;
+                  return ca.activity < cb.activity;
+              });
 
+    // Delete the bottom (worst) half, subject to hard protection rules:
+    //   LBD <= 2  glue clauses: never delete -- they behave like original clauses
+    //   LBD == 3  near-glue:    never delete -- kept "longer" via full tier protection
+    //   size <= 2 binary:       never delete -- binary propagation handles these separately
+    //   i >= limit              in the better half of the sort: never delete
     size_t limit = m_learnts.size() / 2;
     size_t j = 0;
     for (size_t i = 0; i < m_learnts.size(); i++) {
         Clause& c = m_ca[m_learnts[i]];
-        if (i < limit && c.size() > 2 && c.lbd > 2) {
+        bool keep = c.lbd <= 3 || c.size() <= 2 || i >= limit;
+        if (!keep) {
             if (m_proof)
                 m_proof->delete_clause(c);
             c.mark_deleted();
