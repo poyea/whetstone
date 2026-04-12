@@ -62,6 +62,38 @@ void Solver::analyze(CRef conflict, std::vector<Lit>& out_learnt, uint32_t& out_
                 c.lbd = new_lbd;
         }
 
+        // On-the-fly self-subsuming resolution: any literal at position >= 2
+        // that is already in the partial learnt clause (m_seen != 0) would be
+        // skipped by the processing loop below anyway, so it can be permanently
+        // removed from this reason clause right now. Positions 0 and 1 are left
+        // untouched to preserve the two-watched-literal invariant.
+        if (p != Lit_Undef) {
+            bool any = false;
+            for (uint32_t j = 2; j < c.size() && !any; j++)
+                any = (m_seen[c[j].var()] != 0);
+            if (any) {
+                if (m_proof) {
+                    // DRAT order: log the shortened clause (add) before deleting
+                    // the original. The shortened clause is RUP-implied by the
+                    // existing formula and the partial learnt clause.
+                    std::vector<Lit> shortened;
+                    for (uint32_t j = 0; j < c.size(); j++)
+                        if (j < 2 || !m_seen[c[j].var()])
+                            shortened.push_back(c[j]);
+                    m_proof->add_clause(shortened);
+                    m_proof->delete_clause(c);
+                }
+                uint32_t new_sz = c.size();
+                for (uint32_t j = 2; j < new_sz; ) {
+                    if (m_seen[c[j].var()])
+                        c[j] = c[--new_sz];
+                    else
+                        j++;
+                }
+                c.header = (new_sz << 2) | (c.header & 3);
+            }
+        }
+
         uint32_t start = (p == Lit_Undef) ? 0 : 1;
         for (uint32_t j = start; j < c.size(); j++) {
             Lit q = c[j];
