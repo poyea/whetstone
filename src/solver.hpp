@@ -151,6 +151,7 @@ class Solver {
     void clause_decay_activity();
     void reduce_db();
     uint32_t compute_lbd(const std::vector<Lit>& lits);
+    uint32_t compute_lbd(const Clause& c);
 
     lbool search(int nof_conflicts);
     static double luby(double y, int x);

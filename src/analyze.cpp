@@ -51,8 +51,16 @@ void Solver::analyze(CRef conflict, std::vector<Lit>& out_learnt, uint32_t& out_
     do {
         Clause& c = m_ca[conflict];
 
-        if (c.learnt())
+        if (c.learnt()) {
             clause_bump_activity(c);
+            // LBD can only decrease over the life of a clause. Recomputing it
+            // here (while all literals are still assigned) promotes the clause
+            // to a better protection tier if the current search context is
+            // tighter than when it was first learned.
+            uint32_t new_lbd = compute_lbd(c);
+            if (new_lbd < c.lbd)
+                c.lbd = new_lbd;
+        }
 
         uint32_t start = (p == Lit_Undef) ? 0 : 1;
         for (uint32_t j = start; j < c.size(); j++) {

@@ -51,3 +51,11 @@ uint32_t Solver::compute_lbd(const std::vector<Lit>& lits) {
         levels.insert(level(l.var()));
     return static_cast<uint32_t>(levels.size());
 }
+
+uint32_t Solver::compute_lbd(const Clause& c) {
+    std::set<uint32_t> levels;
+    for (uint32_t i = 0; i < c.size(); i++)
+        if (value(c[i]) != lbool::Undef)
+            levels.insert(level(c[i].var()));
+    return static_cast<uint32_t>(levels.size());
+}
