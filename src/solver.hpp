@@ -150,6 +150,7 @@ class Solver {
     void clause_bump_activity(Clause& c);
     void clause_decay_activity();
     void reduce_db();
+    void vivify();
     uint32_t compute_lbd(const std::vector<Lit>& lits);
     uint32_t compute_lbd(const Clause& c);
 

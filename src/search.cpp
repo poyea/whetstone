@@ -105,6 +105,7 @@ bool Solver::solve() {
             status = search(-1);
         }
         m_stats.restarts++;
+        vivify();
     }
 
     if (status == lbool::True)

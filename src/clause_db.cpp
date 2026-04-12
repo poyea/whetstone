@@ -117,3 +117,95 @@ void Solver::reduce_db() {
     }
     m_learnts.resize(j);
 }
+
+// Solver: clause vivification
+// For each learnt clause, negate its literals one-by-one at level 0 and
+// propagate. A conflict before the end means the clause is subsumed and can
+// be deleted. A unit propagation before the end means the prefix so far
+// implies the last enqueued literal -- shorten the clause to that prefix.
+void Solver::vivify() {
+    if (!m_ok || decision_level() != 0)
+        return;
+    if (propagate() != CRef_Undef) {
+        m_ok = false;
+        return;
+    }
+
+    // Snapshot so that newly-added shortened clauses are not re-vivified.
+    const std::vector<CRef> candidates = m_learnts;
+
+    for (CRef cr : candidates) {
+        if (!m_ok)
+            break;
+        Clause& c = m_ca[cr];
+        if (c.deleted() || c.size() <= 2)
+            continue;
+
+        new_decision_level();
+
+        std::vector<Lit> prefix;
+        bool conflict_found = false;
+        bool sat_at_zero    = false;
+
+        for (uint32_t i = 0; i < c.size() && !conflict_found && !sat_at_zero; i++) {
+            Lit   l   = c[i];
+            lbool val = value(l);
+            if (val == lbool::True) {
+                // Clause is satisfied by a level-0 unit -- delete it outright.
+                if (level(l.var()) == 0)
+                    sat_at_zero = true;
+                break;
+            }
+            if (val == lbool::False)
+                continue; // Already falsified at level 0; skip literal.
+            prefix.push_back(l);
+            unchecked_enqueue(~l);
+            if (propagate() != CRef_Undef)
+                conflict_found = true;
+        }
+
+        cancel_until(0);
+
+        // No shortening possible -- leave the clause unchanged.
+        if (!sat_at_zero && !conflict_found && prefix.size() == c.size())
+            continue;
+
+        uint32_t old_lbd = c.lbd;
+
+        // Log the shortened clause before deleting the original (DRAT ordering).
+        if (!sat_at_zero && prefix.size() >= 2 && m_proof)
+            m_proof->add_clause(prefix);
+
+        if (m_proof)
+            m_proof->delete_clause(c);
+        detach_clause(cr);
+        c.mark_deleted();
+
+        if (sat_at_zero)
+            continue; // Nothing to replace -- subsumed by level-0 truth.
+
+        if (prefix.empty()) {
+            // All literals were falsified at level 0 -- contradiction.
+            m_ok = false;
+        } else if (prefix.size() == 1) {
+            if (m_proof)
+                m_proof->add_unit(prefix[0]);
+            if (value(prefix[0]) == lbool::Undef) {
+                unchecked_enqueue(prefix[0]);
+                if (propagate() != CRef_Undef)
+                    m_ok = false;
+            }
+        } else {
+            CRef new_cr = alloc_clause(prefix, /*learnt=*/true);
+            m_ca[new_cr].lbd = old_lbd; // LBD-on-reuse will refine this later.
+            m_learnts.push_back(new_cr);
+            attach_clause(new_cr);
+        }
+    }
+
+    // Compact m_learnts: remove entries that were deleted above.
+    m_learnts.erase(
+        std::remove_if(m_learnts.begin(), m_learnts.end(),
+                       [&](CRef r) { return m_ca[r].deleted(); }),
+        m_learnts.end());
+}
