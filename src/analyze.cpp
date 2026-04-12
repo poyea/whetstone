@@ -60,6 +60,9 @@ void Solver::analyze(CRef conflict, std::vector<Lit>& out_learnt, uint32_t& out_
             uint32_t new_lbd = compute_lbd(c);
             if (new_lbd < c.lbd)
                 c.lbd = new_lbd;
+            // Record when this clause was last useful. reduce_db uses this to
+            // protect recently-active clauses independently of their activity score.
+            c.used_at = m_stats.conflicts;
         }
 
         // On-the-fly self-subsuming resolution: any literal at position >= 2

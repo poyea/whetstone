@@ -94,15 +94,18 @@ void Solver::reduce_db() {
               });
 
     // Delete the bottom (worst) half, subject to hard protection rules:
-    //   LBD <= 2  glue clauses: never delete -- they behave like original clauses
-    //   LBD == 3  near-glue:    never delete -- kept "longer" via full tier protection
-    //   size <= 2 binary:       never delete -- binary propagation handles these separately
-    //   i >= limit              in the better half of the sort: never delete
+    //   LBD <= 2  glue clauses:   never delete -- they behave like original clauses
+    //   LBD == 3  near-glue:      never delete -- kept "longer" via full tier protection
+    //   size <= 2 binary:         never delete -- binary propagation handles these separately
+    //   recently used:            never delete -- active in last 10k conflicts regardless of score
+    //   i >= limit                in the better half of the sort: never delete
+    static constexpr uint64_t recency_window = 10000;
     size_t limit = m_learnts.size() / 2;
     size_t j = 0;
     for (size_t i = 0; i < m_learnts.size(); i++) {
         Clause& c = m_ca[m_learnts[i]];
-        bool keep = c.lbd <= 3 || c.size() <= 2 || i >= limit;
+        bool recently_used = c.used_at > 0 && (m_stats.conflicts - c.used_at) < recency_window;
+        bool keep = c.lbd <= 3 || c.size() <= 2 || recently_used || i >= limit;
         if (!keep) {
             if (m_proof)
                 m_proof->delete_clause(c);

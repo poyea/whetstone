@@ -11,9 +11,10 @@
 /// The flexible array `lits` is allocated contiguously after the header
 /// by ClauseAllocator.
 struct Clause {
-    uint32_t header; // [31:2] size, [1] deleted, [0] learnt
+    uint32_t header;  // [31:2] size, [1] deleted, [0] learnt
     float activity;
     uint32_t lbd;
+    uint32_t used_at; // conflict count when last used in conflict analysis (0 = never)
     Lit lits[1];
 
     uint32_t size() const { return header >> 2; }
@@ -44,6 +45,7 @@ class ClauseAllocator {
         c.header = (n << 2) | (learnt ? 1u : 0u);
         c.activity = 0.0f;
         c.lbd = 0;
+        c.used_at = 0;
         for (uint32_t i = 0; i < n; i++)
             c.lits[i] = lits[i];
 
